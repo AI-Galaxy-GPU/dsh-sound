@@ -9,7 +9,7 @@ DeepSeek Harness（DSH）Web 端插件：**任务完成后播放通知铃声**�
 
 ## 演示
 
-<video src="docs/demo.mp4" controls width="100%"></video>
+🎬 [播放演示视频](docs/demo.mp4)
 
 ## 功能
 
