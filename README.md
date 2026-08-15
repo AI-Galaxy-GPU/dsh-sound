@@ -9,7 +9,9 @@ finishes, and an attention sound whenever something needs a human.
 
 ## Demo
 
-🎬 [Watch the demo](docs/demo.mp4)
+<video src="https://github.com/user-attachments/assets/4441d222-5b74-4598-895e-fd5678641ee7" controls></video>
+
+Source file: [`docs/demo.mp4`](docs/demo.mp4)
 
 ## Features
 
