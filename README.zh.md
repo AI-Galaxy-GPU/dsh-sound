@@ -5,6 +5,8 @@
 DeepSeek Harness（DSH）Web 端插件：**任务完成后播放通知铃声**，并在**需要人介入时**
 （审批、提问、计划评审、目标受阻、任务失败）播放注意提示音。
 
+> 📬 **已提交至 [Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)** — [PR #752](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/752)（等待维护者审批）
+
 ## 功能
 
 ### 六类事件完全独立

@@ -5,6 +5,8 @@ English | [中文](README.zh.md)
 A DeepSeek Harness (DSH) plugin for the **Web UI**: play a customizable sound when a task
 finishes, and an attention sound whenever something needs a human.
 
+> 📬 **Submitted to [Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)** — [PR #752](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/752) (pending maintainer approval)
+
 ## Features
 
 ### Six independent events
