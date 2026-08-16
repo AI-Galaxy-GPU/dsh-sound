@@ -13,6 +13,10 @@ finishes, and an attention sound whenever something needs a human.
 
 Source file: [`docs/demo.mp4`](docs/demo.mp4)
 
+## Screenshots
+
+![dsh-sound settings](assets/screenshots/sound-image.png)
+
 ## Features
 
 ### Six independent events

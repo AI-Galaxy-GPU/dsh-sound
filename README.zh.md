@@ -13,6 +13,10 @@ DeepSeek Harness（DSH）Web 端插件：**任务完成后播放通知铃声**�
 
 源文件: [`docs/demo.mp4`](docs/demo.mp4)
 
+## 截图
+
+![dsh-sound 设置](assets/screenshots/sound-image.png)
+
 ## 功能
 
 ### 六类事件完全独立
