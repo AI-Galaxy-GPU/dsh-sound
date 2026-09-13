@@ -89,7 +89,7 @@ dsh plugin --profile web add @ai-galaxy/dsh-sound
 
 Other profiles work the same way: `dsh plugin --profile <name> add @ai-galaxy/dsh-sound`.
 
-Until the npm release is available, install from the GitHub source:
+To track unreleased `main`, install from the GitHub source instead:
 
 ```sh
 dsh plugin --profile web add github:AI-Galaxy-GPU/dsh-sound

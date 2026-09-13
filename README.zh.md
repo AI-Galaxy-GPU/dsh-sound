@@ -82,7 +82,7 @@ dsh plugin --profile web add @ai-galaxy/dsh-sound
 
 其他 profile 同理：`dsh plugin --profile <name> add @ai-galaxy/dsh-sound`。
 
-npm 正式版发布前，可从 GitHub 源安装：
+想跟进未发布的 `main` 时，可从 GitHub 源安装：
 
 ```sh
 dsh plugin --profile web add github:AI-Galaxy-GPU/dsh-sound
