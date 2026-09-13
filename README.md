@@ -7,12 +7,6 @@ finishes, and an attention sound whenever something needs a human.
 
 > 📬 **Submitted to [Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)** — [PR #752](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/752) (pending maintainer approval)
 
-## Demo
-
-<video src="https://github.com/user-attachments/assets/4441d222-5b74-4598-895e-fd5678641ee7" controls></video>
-
-Source file: [`docs/demo.mp4`](docs/demo.mp4)
-
 ## Screenshots
 
 ![dsh-sound settings](assets/screenshots/sound-image.png)

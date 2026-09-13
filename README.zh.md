@@ -7,12 +7,6 @@ DeepSeek Harness（DSH）Web 端插件：**任务完成后播放通知铃声**�
 
 > 📬 **已提交至 [Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)** — [PR #752](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/752)（等待维护者审批）
 
-## 演示
-
-<video src="https://github.com/user-attachments/assets/4441d222-5b74-4598-895e-fd5678641ee7" controls></video>
-
-源文件: [`docs/demo.mp4`](docs/demo.mp4)
-
 ## 截图
 
 ![dsh-sound 设置](assets/screenshots/sound-image.png)
