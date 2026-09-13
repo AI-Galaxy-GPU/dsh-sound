@@ -40,6 +40,18 @@ DeepSeek Harness（DSH）Web 端插件：**任务完成后播放通知铃声**�
 - **多标签页**：同时打开多个标签页时同一次事件只响一声（BroadcastChannel 决胜）；
   单标签页立即播放，不做 40ms 握手。
 
+### 子代理事件独立通道
+
+子代理来源的事件与主 agent 分开检测、独立控制：
+
+- **一次性子代理任务** — `session/jobs` 中 `kind === 'subagent'` 的任务（并行委派时
+  每个子代理完成都会响主完成音的扰民问题由此解决）；
+- **子代理会话** — 会话行带 `origin: 'subagent'` / `parentId` 的事件（可继续子代理），
+  包括子会话回合结束、审批、提问、目标受阻与失败。
+
+设置面板新增**子代理事件**分区：六个事件行（声音来源与音量控件与主事件一致），
+外加一个「忽略子代理事件」总开关。子代理六类声音默认全部静音，主 agent 事件行为不变。
+
 ### 声音来源
 
 设置面板里每类事件用 **Radio.Group + Radio.Button** 选择声音：
@@ -51,9 +63,10 @@ DeepSeek Harness（DSH）Web 端插件：**任务完成后播放通知铃声**�
 
 ### 设置面板（设置 → 声音通知）
 
-总开关、六个事件行（标题行右侧音量滑块，下方 Radio.Button 分段选择；
-点击选项即选中并播放；选「本地文件」时出现选择/更换按钮与文件名）、
-配置导入/导出。
+总开关与配置导入/导出保持常驻；**主 Agent / 子代理** 两个 Tab 切换面板：
+主 Tab 是六类主事件行，子代理 Tab 是六类子代理事件行加「忽略子代理事件」开关。
+每个事件行标题行右侧为音量滑块，下方为 Radio.Button 分段选择（点击即选中并播放）；
+选「本地文件」时行下方出现选择/更换按钮与文件名。
 
 ## 安装
 
@@ -62,29 +75,38 @@ DeepSeek Harness（DSH）Web 端插件：**任务完成后播放通知铃声**�
 
 ```sh
 # 一键安装：pnpm 安装依赖并把本包加入 profile 的 bundles 层
-dsh plugin --profile web add dsh-sound
+dsh plugin --profile web add @ai-galaxy/dsh-sound
 
 # 重启服务（或刷新页面），打开 设置 → 声音通知 即可配置
 ```
 
-其他 profile 同理：`dsh plugin --profile <name> add dsh-sound`。
+其他 profile 同理：`dsh plugin --profile <name> add @ai-galaxy/dsh-sound`。
+
+npm 正式版发布前，可从 GitHub 源安装：
+
+```sh
+dsh plugin --profile web add github:AI-Galaxy-GPU/dsh-sound
+```
 
 ### 手动安装（无 pnpm 时）
 
 1. 把本包及依赖（`@deepseek-ai/schemastery`、`@deepseek-ai/cosmokit`、`@standard-schema/spec`）
    复制到 `$DSH_HOME/profiles/web/node_modules/`；
-2. 在 `$DSH_HOME/profiles/web/package.json` 的 `dsh.profile.bundles` 中追加 `"dsh-sound"`；
+2. 在 `$DSH_HOME/profiles/web/package.json` 的 `dsh.profile.bundles` 中追加 `"@ai-galaxy/dsh-sound"`；
 3. 重启 `dsh web`。
 
 ## 配置持久化
 
 - 客户端配置保存在浏览器 **localStorage**（键 `dsh-sound:config`），读取时做字段校验与默认值兜底。
   上传的本地音乐存入 **IndexedDB**（`dsh-sound-audio`），不受 localStorage 容量限制。
-- 配置键：`enabled`、`quietCurrent`，以及六个声音 + 六个音量字段——
+- 配置键：`enabled`、`quietCurrent`、`ignoreSubagent`，以及六个主声音 + 六个主音量字段——
   `completionSound` / `approvalSound` / `questionSound` / `planReviewSound` /
   `goalBlockedSound` / `failureSound`（内置键 / `none` / `local` / `data:` URL /
-  `audio:<id>`）与 `completionVolume` … `failureVolume`（0–1）。
-  `localFiles` 记住每类事件上次选的本地文件，切到内置音再切回时不丢。
+  `audio:<id>`）与 `completionVolume` … `failureVolume`（0–1）；子代理通道另有对应的
+  `subagentCompletionSound` … `subagentFailureSound` 与
+  `subagentCompletionVolume` … `subagentFailureVolume`（声音默认全部 `none`）。
+  `localFiles` 记住每类事件（`completion` … 与 `subagent-completion` …）上次选的
+  本地文件，切到内置音再切回时不丢。
 - **0.2.0 配置自动迁移**：旧配置的 `defaultSound` 迁为 `completionSound`，
   voice/TTS 值降级为该类默认音，`workspaces` / `debounceMs` / 全局 `volume` /
   语音设置等旧字段一律忽略。
@@ -105,8 +127,8 @@ npm run check # 语法检查
 
 > **开发注意**：profile 的 pnpm 使用 `nodeLinker: hoisted`，安装时会**拷贝**
 > `file:` 依赖到 `node_modules`——直接改本仓库不会立即生效，需要
-> 重新执行 `pnpm --dir ~/.dsh/profiles/web update dsh-sound`，或把
-> `~/.dsh/profiles/web/node_modules/dsh-sound` 换成指向本目录的软链。
+> 重新执行 `pnpm --dir ~/.dsh/profiles/web update @ai-galaxy/dsh-sound`，或把
+> `~/.dsh/profiles/web/node_modules/@ai-galaxy/dsh-sound` 换成指向本目录的软链。
 > Web 服务按请求读取 bundle 内容（只有 boot 页的 rev 哈希在启动时缓存），
 > 刷新拷贝后浏览器硬刷新（Cmd+Shift+R）即可，无需重启服务。
 
@@ -117,6 +139,9 @@ npm run check # 语法检查
 - `tools/` — 测试与验收脚本（不随 npm 包发布）
 
 ## 发布
+
+以 `@ai-galaxy/dsh-sound` 发布（需要 `ai-galaxy` npm 组织成员权限；
+`publishConfig.access` 已设为 `public`）。
 
 ```sh
 npm login                       # 登录 npm（建议开启 2FA）

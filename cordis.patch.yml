@@ -3,4 +3,4 @@
 # `name` 是包名（从 profile 的 node_modules 解析），不是相对路径。
 - insert:
     - id: dsh-sound
-      name: dsh-sound
+      name: '@ai-galaxy/dsh-sound'

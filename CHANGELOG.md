@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.0 (2026-09-12) — 子代理事件独立通道
+
+- 新增「子代理事件」分区：完成 / 审批 / 提问 / 计划评审 / 目标受阻 / 失败六类各自独立
+  配置声音与音量，默认**全部静音**；分区顶部「忽略子代理事件」开关一键静默全部
+  子代理事件。
+- 子代理来源双通道判定：一次性子代理任务（`session/jobs` 帧 `job.kind === 'subagent'`）
+  与子代理会话（列表行 `origin === 'subagent'` / `parentId`），mux 事件流与快照兜底
+  两条路径同时生效；主 agent 事件行为不变。解决并行子代理完成音连响的问题（#3）。
+- 包名改为 `@ai-galaxy/dsh-sound`（npm 上 `dsh-sound` 为第三方占位包），
+  `cordis.patch.yml` 的 bundle 解析名同步更新；安装命令改为
+  `dsh plugin --profile web add @ai-galaxy/dsh-sound`（发版前可用
+  `github:AI-Galaxy-GPU/dsh-sound`）。
+- 客户端模块注册 id 同步改为 `@ai-galaxy/dsh-sound`：DSH 的 client-modules
+  按完整包名等待注册，改名后仍注册旧 id 会导致整个插件加载失败。
+- 配置新增 13 个字段（`ignoreSubagent`、六类子代理声音、六类子代理音量），
+  旧配置读取时自动补默认值；`localFiles` 新增 `subagent-<kind>` 键；
+  导出 / 导入自动覆盖新字段。
+- 设置页改为 **主 Agent / 子代理** 两个 Tab：总开关与导入/导出常驻，
+  子代理 Tab 内含六类事件行与「忽略子代理事件」开关，不再竖向堆叠两组长列表。
+- 宿主端 settings schema 与 `lib/types/index.d.ts` 同步。
+
 ## 0.3.3 (2026-08-16)
 
 - 内置音与「本地文件」之间切换时保留已选文件（IndexedDB / data URL 不删），切回仍是原文件。

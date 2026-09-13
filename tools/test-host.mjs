@@ -46,6 +46,19 @@ ok(resolved.questionVolume === 1, 'default questionVolume=1')
 ok(resolved.planReviewVolume === 1, 'default planReviewVolume=1')
 ok(resolved.goalBlockedVolume === 1, 'default goalBlockedVolume=1')
 ok(resolved.failureVolume === 1, 'default failureVolume=1')
+ok(resolved.ignoreSubagent === false, 'default ignoreSubagent=false')
+ok(resolved.subagentCompletionSound === 'none', 'default subagentCompletionSound=none')
+ok(resolved.subagentApprovalSound === 'none', 'default subagentApprovalSound=none')
+ok(resolved.subagentQuestionSound === 'none', 'default subagentQuestionSound=none')
+ok(resolved.subagentPlanReviewSound === 'none', 'default subagentPlanReviewSound=none')
+ok(resolved.subagentGoalBlockedSound === 'none', 'default subagentGoalBlockedSound=none')
+ok(resolved.subagentFailureSound === 'none', 'default subagentFailureSound=none')
+ok(resolved.subagentCompletionVolume === 1, 'default subagentCompletionVolume=1')
+ok(resolved.subagentApprovalVolume === 1, 'default subagentApprovalVolume=1')
+ok(resolved.subagentQuestionVolume === 1, 'default subagentQuestionVolume=1')
+ok(resolved.subagentPlanReviewVolume === 1, 'default subagentPlanReviewVolume=1')
+ok(resolved.subagentGoalBlockedVolume === 1, 'default subagentGoalBlockedVolume=1')
+ok(resolved.subagentFailureVolume === 1, 'default subagentFailureVolume=1')
 
 // 4) schema resolves a real section (custom data URL + per-event volumes)
 const full = registered.schema({
@@ -55,11 +68,17 @@ const full = registered.schema({
   failureSound: 'none',
   approvalVolume: 0.3,
   failureVolume: 0.5,
+  ignoreSubagent: true,
+  subagentCompletionSound: 'bell',
+  subagentFailureVolume: 0.25,
 })
 ok(full.enabled === false && full.quietCurrent === true, 'user values preserved')
 ok(full.completionSound === 'data:audio/mp3;base64,AAAA', 'custom data URL preserved')
 ok(full.failureSound === 'none', 'none preserved')
 ok(full.approvalVolume === 0.3 && full.failureVolume === 0.5, 'per-event volumes preserved')
+ok(full.ignoreSubagent === true, 'ignoreSubagent preserved')
+ok(full.subagentCompletionSound === 'bell', 'subagentCompletionSound preserved')
+ok(full.subagentFailureVolume === 0.25, 'subagentFailureVolume preserved')
 
 // 5) schema rejects invalid sections
 for (const bad of [
@@ -67,6 +86,9 @@ for (const bad of [
   { completionVolume: 1.5 },
   { approvalVolume: -0.1 },
   { completionSound: 42 },
+  { ignoreSubagent: 'yes' },
+  { subagentCompletionVolume: 1.5 },
+  { subagentApprovalSound: 42 },
 ]) {
   let rejected = false
   try { registered.schema(bad) } catch (e) { rejected = true }

@@ -117,7 +117,8 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
   // evaluate the classic bundle script
   const factoryFn = new Function('window', source + '\n')
   factoryFn(fakeWindow)
-  const entry = registered['dsh-sound']
+  const entry = registered['@ai-galaxy/dsh-sound']
+  if (!entry) throw new Error('client bundle must register under the package name (@ai-galaxy/dsh-sound)')
   const exportsObj = entry.factory((spec) => (spec === 'react' ? react : undefined))
 
   // mutable session store
@@ -186,6 +187,14 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
 
   const row = (extra) => Object.assign({ id: 's1', running: false }, extra)
 
+  const renderSection = (preserveHooks) => {
+    created.length = 0
+    hookCursor = 0
+    if (!preserveHooks) hookState.length = 0
+    const Section = slotReg && slotReg.registration && slotReg.registration.comp
+    if (Section) Section({})
+  }
+
   return {
     exportsObj,
     ctx,
@@ -202,13 +211,8 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
     getSlotReg: () => slotReg,
     storage,
     created,
-    renderUI: () => {
-      created.length = 0
-      hookCursor = 0
-      hookState.length = 0
-      const Section = slotReg && slotReg.registration && slotReg.registration.comp
-      if (Section) Section({})
-    },
+    renderUI: () => renderSection(false),
+    rerenderUI: () => renderSection(true),
     timers,
     fireTimers: () => timers.forEach((t) => { if (!t.cleared && !t.fired) { t.fired = true; t.fn() } }),
     fireTimersMs: (ms) => timers.forEach((t) => {
@@ -449,18 +453,21 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
   try { env.renderUI() } catch (e) { threw = true; console.log(e) }
   ok(!threw, 'Section renders without throwing')
 
+  const tabs = env.created.filter((n) => n.type === 'button' && n.props.role === 'tab')
+  ok(tabs.length === 2 && tabs[0].props['aria-selected'] === 'true' && tabs[1].props['aria-selected'] === 'false', 'renders 主 Agent / 子代理 tabs with the main tab active by default')
+
   const groups = env.created.filter((n) => n.props && n.props.role === 'radiogroup')
-  ok(groups.length === 6, 'renders six Radio.Group rows')
+  ok(groups.length === 6, 'main tab renders six Radio.Group rows')
   ok(groups[0].props['data-kind'] === 'completion' && groups[1].props['data-kind'] === 'approval', 'radio groups are named per event kind')
 
   const radios = env.created.filter((n) => n.type === 'input' && n.props.type === 'radio')
-  ok(radios.length === 42, 'renders 42 Radio.Button inputs (6 events x 7 options)')
+  ok(radios.length === 42, 'renders 42 Radio.Button inputs (6 main events x 7 options)')
   ok(radios.slice(0, 7).map((r) => r.props.value).join(',') === 'ding,chime,bell,complete,success,none,local', 'completion group lists all sound options incl. local')
   ok(radios[1].props.checked === true, 'completion group default chime Radio.Button checked')
   ok(radios[0].props.name === 'dsh-sound-completion' && radios[7].props.name === 'dsh-sound-approval', 'Radio.Button names are scoped per event')
 
   const ranges = env.created.filter((n) => n.type === 'input' && n.props.type === 'range')
-  ok(ranges.length === 6, 'renders six independent volume sliders')
+  ok(ranges.length === 6, 'main tab renders six independent volume sliders')
   ok(ranges.every((r) => r.props.min === 0 && r.props.max === 100), 'volume sliders range 0-100')
   ok(ranges.every((r) => r.props.step === 1), 'volume sliders use 1% steps (0.01 precision)')
 
@@ -855,6 +862,169 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
     env.drive({ ids: ['s1'], byId: { s1: env.row({ running: false }) }, current: 's1', jobsBySession: {} })
     ok(env.freqs.includes(FREQ.chime), 'after mux unwrap failures, snapshot turn-end still plays')
     env.getEffectDisposer()()
+  }
+
+  // ----- scenario 34: subagent session turn end is silent by default (snapshot path) -----
+  {
+    const env = makeEnv(undefined)
+    env.exportsObj.apply(env.ctx)
+    env.drive({
+      ids: ['s1', 's2'],
+      byId: { s1: env.row({ running: false }), s2: env.row({ id: 's2', running: true, parentId: 's1', origin: 'subagent' }) },
+      current: 's1',
+      jobsBySession: {},
+    })
+    env.drive({
+      ids: ['s1', 's2'],
+      byId: { s1: env.row({ running: false }), s2: env.row({ id: 's2', running: false, parentId: 's1', origin: 'subagent' }) },
+      current: 's1',
+      jobsBySession: {},
+    })
+    ok(env.getOscCount() === 0, 'subagent session turn end is silent by default (snapshot path)')
+  }
+
+  // ----- scenario 35: configured subagent completion plays its own sound (snapshot path) -----
+  {
+    const env = makeEnv({ subagentCompletionSound: 'bell' })
+    env.exportsObj.apply(env.ctx)
+    env.drive({
+      ids: ['s1', 's2'],
+      byId: { s1: env.row({ running: false }), s2: env.row({ id: 's2', running: true, origin: 'subagent' }) },
+      current: 's1',
+      jobsBySession: {},
+    })
+    env.drive({
+      ids: ['s1', 's2'],
+      byId: { s1: env.row({ running: false }), s2: env.row({ id: 's2', running: false, origin: 'subagent' }) },
+      current: 's1',
+      jobsBySession: {},
+    })
+    ok(env.getOscCount() > 0 && env.freqs[0] === FREQ.bell, 'subagent session turn end plays subagentCompletionSound (snapshot path)')
+  }
+
+  // ----- scenario 36: subagent jobs (kind=subagent) route to the subagent channel -----
+  {
+    const silent = makeEnv({ completionSound: 'chime' })
+    silent.exportsObj.apply(silent.ctx)
+    silent.drive({ ids: ['s1'], byId: { s1: silent.row({ running: false }) }, current: 's1', jobsBySession: { s1: [{ id: 'subagent-1', kind: 'subagent', label: 'x', status: 'running', startedAt: 1 }] } })
+    silent.drive({ ids: ['s1'], byId: { s1: silent.row({ running: false }) }, current: 's1', jobsBySession: { s1: [{ id: 'subagent-1', kind: 'subagent', label: 'x', status: 'completed', startedAt: 1, finishedAt: 2 }] } })
+    ok(silent.getOscCount() === 0, 'subagent job completion is silent by default (snapshot path)')
+
+    const env = makeEnv({ completionSound: 'chime', subagentCompletionSound: 'bell', subagentFailureSound: 'complete' })
+    env.exportsObj.apply(env.ctx)
+    env.drive({ ids: ['s1'], byId: { s1: env.row({ running: false }) }, current: 's1', jobsBySession: { s1: [{ id: 'subagent-1', kind: 'subagent', label: 'x', status: 'running', startedAt: 1 }] } })
+    env.drive({ ids: ['s1'], byId: { s1: env.row({ running: false }) }, current: 's1', jobsBySession: { s1: [{ id: 'subagent-1', kind: 'subagent', label: 'x', status: 'completed', startedAt: 1, finishedAt: 2 }] } })
+    ok(env.freqs.includes(FREQ.bell) && !env.freqs.includes(FREQ.chime), 'subagent job completion plays subagentCompletionSound, not the main completion sound')
+    const before = env.getOscCount()
+    env.drive({ ids: ['s1'], byId: { s1: env.row({ running: false }) }, current: 's1', jobsBySession: { s1: [{ id: 'subagent-2', kind: 'subagent', label: 'y', status: 'running', startedAt: 3 }] } })
+    env.drive({ ids: ['s1'], byId: { s1: env.row({ running: false }) }, current: 's1', jobsBySession: { s1: [{ id: 'subagent-2', kind: 'subagent', label: 'y', status: 'failed', startedAt: 3, finishedAt: 4 }] } })
+    ok(env.getOscCount() > before && env.freqs.includes(FREQ.complete), 'subagent job failure plays subagentFailureSound')
+  }
+
+  // ----- scenario 37: ignoreSubagent mutes subagent events even when sounds are configured -----
+  {
+    const env = makeEnv({ ignoreSubagent: true, subagentCompletionSound: 'bell', subagentFailureSound: 'complete' })
+    env.exportsObj.apply(env.ctx)
+    env.drive({
+      ids: ['s1', 's2'],
+      byId: { s1: env.row({ running: false }), s2: env.row({ id: 's2', running: true, origin: 'subagent' }) },
+      current: 's1',
+      jobsBySession: { s1: [{ id: 'subagent-1', kind: 'subagent', label: 'x', status: 'running', startedAt: 1 }] },
+    })
+    env.drive({
+      ids: ['s1', 's2'],
+      byId: { s1: env.row({ running: false }), s2: env.row({ id: 's2', running: false, origin: 'subagent' }) },
+      current: 's1',
+      jobsBySession: { s1: [{ id: 'subagent-1', kind: 'subagent', label: 'x', status: 'failed', startedAt: 1, finishedAt: 2 }] },
+    })
+    ok(env.getOscCount() === 0, 'ignoreSubagent mutes both subagent session and job events')
+  }
+
+  // ----- scenario 38: mux child session frames route to the subagent channel -----
+  {
+    const silent = makeEnv(undefined, true)
+    silent.exportsObj.apply(silent.ctx)
+    silent.drive({ ids: ['s1', 's2'], byId: { s1: silent.row({ running: false }), s2: silent.row({ id: 's2', running: false, origin: 'subagent' }) }, current: 's1', jobsBySession: {} })
+    silent.muxPush({ type: 'session/event', sessionId: 's2', event: { type: 'turn/end', seq: 1, time: 1, data: { turn: 1, reason: { kind: 'completed' } } } })
+    await tick()
+    ok(silent.getOscCount() === 0, 'mux child session turn/end is silent by default')
+    silent.getEffectDisposer()()
+
+    const env = makeEnv({ subagentCompletionSound: 'bell' }, true)
+    env.exportsObj.apply(env.ctx)
+    env.drive({ ids: ['s1', 's2'], byId: { s1: env.row({ running: false }), s2: env.row({ id: 's2', running: false, origin: 'subagent' }) }, current: 's1', jobsBySession: {} })
+    env.muxPush({ type: 'session/event', sessionId: 's2', event: { type: 'turn/end', seq: 1, time: 1, data: { turn: 1, reason: { kind: 'completed' } } } })
+    await tick()
+    ok(env.freqs.includes(FREQ.bell), 'mux child session turn/end plays subagentCompletionSound')
+    env.getEffectDisposer()()
+  }
+
+  // ----- scenario 39: mux subagent jobs and child approvals route to the subagent channel -----
+  {
+    const env = makeEnv({ subagentCompletionSound: 'bell', subagentApprovalSound: 'success' }, true)
+    env.exportsObj.apply(env.ctx)
+    env.drive({ ids: ['s1', 's2'], byId: { s1: env.row({ running: false }), s2: env.row({ id: 's2', running: false, origin: 'subagent' }) }, current: 's1', jobsBySession: {} })
+    env.fireTimersMs(0)
+    env.muxPush({ type: 'session/jobs', sessionId: 's1', jobs: [{ id: 'subagent-1', kind: 'subagent', label: 'x', status: 'running', startedAt: 1 }] })
+    await tick()
+    env.muxPush({ type: 'session/jobs', sessionId: 's1', jobs: [{ id: 'subagent-1', kind: 'subagent', label: 'x', status: 'completed', startedAt: 1, finishedAt: 2 }] })
+    await tick()
+    ok(env.freqs.includes(FREQ.bell), 'mux subagent job completion plays subagentCompletionSound')
+    env.muxPush({ type: 'approval/requested', sessionId: 's2', approvalId: 'ap9', toolName: 'x' })
+    await tick()
+    ok(env.freqs.includes(FREQ.success), 'mux child approval plays subagentApprovalSound')
+    env.getEffectDisposer()()
+  }
+
+  // ----- scenario 40: ignoreSubagent also mutes mux subagent frames -----
+  {
+    const env = makeEnv({ ignoreSubagent: true, subagentCompletionSound: 'bell', subagentApprovalSound: 'ding' }, true)
+    env.exportsObj.apply(env.ctx)
+    env.drive({ ids: ['s1', 's2'], byId: { s1: env.row({ running: false }), s2: env.row({ id: 's2', running: false, origin: 'subagent' }) }, current: 's1', jobsBySession: {} })
+    env.fireTimersMs(0)
+    env.muxPush({ type: 'session/event', sessionId: 's2', event: { type: 'turn/end', seq: 1, time: 1, data: { turn: 1, reason: { kind: 'completed' } } } })
+    await tick()
+    env.muxPush({ type: 'approval/requested', sessionId: 's2', approvalId: 'ap10', toolName: 'x' })
+    await tick()
+    ok(env.getOscCount() === 0, 'ignoreSubagent mutes mux subagent frames')
+    env.getEffectDisposer()()
+  }
+
+  // ----- scenario 41: main session events keep the main channel -----
+  {
+    const env = makeEnv({ subagentCompletionSound: 'bell' }, true)
+    env.exportsObj.apply(env.ctx)
+    env.drive({ ids: ['s1'], byId: { s1: env.row({ running: false }) }, current: 's1', jobsBySession: {} })
+    env.muxPush({ type: 'session/event', sessionId: 's1', event: { type: 'turn/end', seq: 1, time: 1, data: { turn: 1, reason: { kind: 'completed' } } } })
+    await tick()
+    ok(env.freqs.includes(FREQ.chime) && !env.freqs.includes(FREQ.bell), 'main session completion keeps the main completion sound')
+    env.getEffectDisposer()()
+  }
+
+  // ----- scenario 42: settings tabs switch between the main and subagent panels -----
+  {
+    const env = makeEnv(undefined)
+    env.exportsObj.apply(env.ctx)
+    env.renderUI()
+    const tabs = env.created.filter((n) => n.type === 'button' && n.props.role === 'tab')
+    tabs[1].props.onClick()
+    env.rerenderUI()
+    const groups = env.created.filter((n) => n.props && n.props.role === 'radiogroup')
+    ok(groups.length === 6 && groups[0].props['data-kind'] === 'subagent-completion' && groups[5].props['data-kind'] === 'subagent-failure', 'subagent tab renders the six subagent event rows')
+    const radios = env.created.filter((n) => n.type === 'input' && n.props.type === 'radio')
+    ok(radios.length === 42 && radios[5].props.checked === true, 'subagent events default to 静音')
+    const switches = env.created.filter((n) => n.type === 'button' && n.props.role === 'switch')
+    ok(switches.length === 2 && switches[1].props['aria-checked'] === 'false', 'subagent tab carries the ignore switch, off by default')
+    switches[1].props.onClick()
+    env.rerenderUI()
+    const stored = JSON.parse(env.storage.get('dsh-sound:config'))
+    ok(stored.ignoreSubagent === true, 'ignore switch writes ignoreSubagent to the config store')
+    const refreshedTabs = env.created.filter((n) => n.type === 'button' && n.props.role === 'tab')
+    ok(refreshedTabs[1].props['aria-selected'] === 'true', 'active tab survives a store-driven rerender')
+    refreshedTabs[0].props.onClick()
+    env.rerenderUI()
+    const mainGroups = env.created.filter((n) => n.props && n.props.role === 'radiogroup')
+    ok(mainGroups.length === 6 && mainGroups[0].props['data-kind'] === 'completion', 'switching back shows the main event rows again')
   }
 
   console.log(failures === 0 ? 'ALL CLIENT TESTS PASSED' : failures + ' FAILURES')
