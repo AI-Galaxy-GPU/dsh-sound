@@ -131,6 +131,29 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
   let sessionsSub = null
   let effectDisposer = null
   let slotReg = null
+  let activeLocale = 'zh'
+  const languages = new Map([['zh', { id: 'zh' }], ['en', { id: 'en' }]])
+  const dictionaries = new Map()
+  const locale = {
+    addLanguage(language) {
+      if (languages.has(language.id)) throw new Error('duplicate language: ' + language.id)
+      languages.set(language.id, language)
+      return () => languages.delete(language.id)
+    },
+    register(namespace, language, dictionary) {
+      dictionaries.set(namespace + '/' + language, dictionary)
+      return () => dictionaries.delete(namespace + '/' + language)
+    },
+    bind(namespace) {
+      return (key) => {
+        const current = dictionaries.get(namespace + '/' + activeLocale)
+        const fallback = dictionaries.get(namespace + '/en')
+        return (current && current[key]) || (fallback && fallback[key]) || key
+      }
+    },
+    getSnapshot: () => ({ active: activeLocale, revision: 0 }),
+    subscribe: () => () => {},
+  }
   // 可控的 push 式 mux 异步迭代器
   const muxQueue = []
   const muxWaiters = []
@@ -164,6 +187,7 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
   }
   const hostPush = (frame) => hostDeliver({ value: frame, done: false })
   const ctx = {
+    locale,
     sessions: {
       list: {
         getSnapshot: () => sessionsSnap,
@@ -209,6 +233,9 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
     xhrUrls,
     getEffectDisposer: () => effectDisposer,
     getSlotReg: () => slotReg,
+    setLocale: (id) => { activeLocale = id },
+    languages,
+    dictionaries,
     storage,
     created,
     renderUI: () => renderSection(false),
@@ -497,6 +524,35 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
   const beforeChime = env.getOscCount()
   chimeRadio.props.onClick()
   ok(env.getOscCount() === beforeChime + 4 && env.freqs.includes(FREQ.chime), 'clicking the already-selected chime replays')
+}
+
+// ----- scenario 18b: every product-facing UI key is translated in all supported locales -----
+{
+  const env = makeEnv(undefined)
+  env.exportsObj.apply(env.ctx)
+  const productKeys = [
+    'sound.ding', 'sound.chime', 'sound.bell', 'sound.complete', 'sound.success', 'sound.none', 'sound.local',
+    'event.approval', 'event.question', 'event.planReview', 'event.goalBlocked', 'event.failure',
+    'file.embeddedAudio', 'file.noneSelected', 'file.replace', 'file.choose', 'file.clickToPlay',
+    'status.configUnavailable', 'section.title', 'tab.mainAgent', 'tab.subagents', 'subagent.ignoreEvents',
+    'transfer.title', 'transfer.export', 'transfer.import', 'control.volume', 'control.play',
+  ]
+  ok(env.languages.get('pt-BR').label === 'Português (Brasil)', 'pt-BR language is registered')
+  ok(env.languages.get('es').label === 'Español', 'Spanish language is registered')
+  for (const language of ['zh', 'en', 'pt-BR', 'es']) {
+    const dictionary = env.dictionaries.get('dsh-sound/' + language)
+    ok(!!dictionary && Object.keys(dictionary).length === productKeys.length && productKeys.every((key) => typeof dictionary[key] === 'string' && dictionary[key].length > 0), language + ' has every product-facing translation key')
+  }
+  env.setLocale('pt-BR')
+  env.renderUI()
+  ok(env.getSlotReg().registration.opts.label() === 'Notificações sonoras', 'settings section label changes to pt-BR')
+  ok(env.created.some((node) => node.type === 'button' && node.props.role === 'tab' && node.children[0] === 'Agente principal'), 'pt-BR main-agent tab renders semantically')
+  ok(env.created.some((node) => node.type === 'input' && node.props.type === 'range' && node.props['aria-label'] === 'Volume: Conclusão'), 'pt-BR volume control has a translated accessible name')
+  env.setLocale('es')
+  env.renderUI()
+  ok(env.getSlotReg().registration.opts.label() === 'Notificaciones sonoras', 'settings section label changes to Spanish')
+  ok(env.created.some((node) => node.type === 'button' && node.props.role === 'tab' && node.children[0] === 'Agente principal'), 'Spanish main-agent tab renders semantically')
+  ok(env.created.some((node) => node.type === 'input' && node.props.type === 'range' && node.props['aria-label'] === 'Volumen: Completado'), 'Spanish volume control has a translated accessible name')
 }
 
 // ----- scenario 19: local file selection shows a file picker below that event -----
