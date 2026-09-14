@@ -132,7 +132,7 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
   let effectDisposer = null
   let slotReg = null
   let activeLocale = 'zh'
-  const languages = new Map([['zh', { id: 'zh' }], ['en', { id: 'en' }]])
+  const languages = new Map([['zh', { id: 'zh' }], ['en', { id: 'en' }]].concat((seededConfig && seededConfig._localeLanguages) || []))
   const dictionaries = new Map()
   const locale = {
     addLanguage(language) {
@@ -151,6 +151,7 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
         return (current && current[key]) || (fallback && fallback[key]) || key
       }
     },
+    getLocale: () => ({ locales: Array.from(languages.values()) }),
     getSnapshot: () => ({ active: activeLocale, revision: 0 }),
     subscribe: () => () => {},
   }
@@ -553,6 +554,18 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
   ok(env.getSlotReg().registration.opts.label() === 'Notificaciones sonoras', 'settings section label changes to Spanish')
   ok(env.created.some((node) => node.type === 'button' && node.props.role === 'tab' && node.children[0] === 'Agente principal'), 'Spanish main-agent tab renders semantically')
   ok(env.created.some((node) => node.type === 'input' && node.props.type === 'range' && node.props['aria-label'] === 'Volumen: Completado'), 'Spanish volume control has a translated accessible name')
+}
+
+// ----- scenario 18c: borrowed locale IDs are matched case-insensitively and survive disposal -----
+{
+  const borrowedPt = { id: 'PTbr', label: 'Borrowed Portuguese' }
+  const borrowedEs = { id: 'ES', label: 'Borrowed Spanish' }
+  const env = makeEnv({ _localeLanguages: [['PTbr', borrowedPt], ['ES', borrowedEs]] })
+  env.exportsObj.apply(env.ctx)
+  ok(env.languages.get('PTbr') === borrowedPt && env.languages.get('ES') === borrowedEs, 'case-insensitive ptBR and es locale guards preserve borrowed registrations')
+  ok(env.dictionaries.has('dsh-sound/pt-BR') && env.dictionaries.has('dsh-sound/es'), 'plugin registers dictionaries for borrowed locale IDs')
+  env.getEffectDisposer()()
+  ok(env.languages.get('PTbr') === borrowedPt && env.languages.get('ES') === borrowedEs, 'disposing plugin does not remove borrowed locale registrations')
 }
 
 // ----- scenario 19: local file selection shows a file picker below that event -----
@@ -1068,7 +1081,8 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
     const groups = env.created.filter((n) => n.props && n.props.role === 'radiogroup')
     ok(groups.length === 6 && groups[0].props['data-kind'] === 'subagent-completion' && groups[5].props['data-kind'] === 'subagent-failure', 'subagent tab renders the six subagent event rows')
     const radios = env.created.filter((n) => n.type === 'input' && n.props.type === 'radio')
-    ok(radios.length === 42 && radios[5].props.checked === true, 'subagent events default to 静音')
+    const checked = radios.filter((radio) => radio.props.checked).map((radio) => radio.props.value)
+    ok(checked.join(',') === 'none,ding,ding,ding,bell,bell', 'subagent event defaults keep completion silent and alert events audible')
     const switches = env.created.filter((n) => n.type === 'button' && n.props.role === 'switch')
     ok(switches.length === 2 && switches[1].props['aria-checked'] === 'false', 'subagent tab carries the ignore switch, off by default')
     switches[1].props.onClick()
