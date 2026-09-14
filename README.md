@@ -123,6 +123,50 @@ dsh plugin --profile web add github:AI-Galaxy-GPU/dsh-sound
   third-party namespaces to browsers, so the client does not depend on `settingsScope` today;
   the registration keeps the migration path open for future releases.
 
+## Compatibility & capability disclosure
+
+**Compatibility**
+
+- Node.js: `>=20` (`engines.node`).
+- DSH: verified on `0.1.5-alpha.1`, `0.1.5-alpha.2`, `0.1.5-rc.1`, `0.1.5-rc.2` —
+  declared as `compatible` in `dsh.compatibility.dshReleases`; the plugin was also
+  smoke-tested end-to-end (settings panel + live event sounds) on a source build of
+  `0.1.3-alpha.1`.
+- Verification (2026-09-13): each declared version passed a disposable-profile cycle —
+  `dsh plugin --profile web add <tarball>` → `dsh web --no-open` boots and serves the
+  plugin bundle (`@ai-galaxy/dsh-sound/client.js` present in the boot page, no plugin
+  load errors) → `dsh plugin --profile web remove @ai-galaxy/dsh-sound` leaves the
+  profile clean. Each run used a temporary `DSH_HOME`, deleted afterwards.
+
+**Dependencies**
+
+- Host half: `@deepseek-ai/schemastery` (settings schema) plus the peer
+  `@deepseek-ai/cordis`. No other runtime dependencies.
+- Client half: React, `@deepseek-ai/dsh-client-runtime`, and
+  `@deepseek-ai/dsh-client-ui-settings` are provided by the host application through
+  the client module table; the package ships no copies of them.
+
+**Capabilities and permissions**
+
+- Local files: the settings panel opens the browser's own file picker for an audio
+  file the user selects; the audio is stored in IndexedDB (`dsh-sound-audio`). There is
+  no filesystem access outside the browser sandbox and no automatic file scanning.
+- Storage: configuration lives in `localStorage` (`dsh-sound:config`), audio files in
+  IndexedDB.
+- No network requests, no external services, no shell or command execution, no
+  credentials, no native artifacts, and no install lifecycle scripts
+  (`preinstall` / `install` / `postinstall` / `prepare` are absent).
+
+**Failure bounds**
+
+- Playback failures (browser autoplay policy, unsupported audio) stay silent; the UI
+  keeps working.
+- Unavailable IndexedDB/localStorage degrades to in-memory configuration; unreadable
+  audio references are ignored.
+- Unavailable or unparseable event streams degrade to session-snapshot diffing;
+  malformed frames are ignored without crashing.
+- Every configuration read is sanitized against the known field set and defaults.
+
 ## Development
 
 ```sh

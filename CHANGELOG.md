@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1 (2026-09-13) — DSH STORE 契约整改
+
+- manifest 增加 canonical `repository` / `homepage` / `bugs`，与 GitHub 项目身份一致。
+- 新增 `dsh.compatibility.dshReleases`：`0.1.5-alpha.1` / `0.1.5-alpha.2` /
+  `0.1.5-rc.1` / `0.1.5-rc.2` 声明为 `compatible`（每个版本都通过一次性 Profile 的
+  安装 / 启动 / 卸载验证）。
+- README 增加兼容范围、依赖、能力与权限、失败边界与验证记录披露。
+
 ## 0.4.0 (2026-09-12) — 子代理事件独立通道
 
 - 新增「子代理事件」分区：完成 / 审批 / 提问 / 计划评审 / 目标受阻 / 失败六类各自独立

@@ -110,6 +110,42 @@ dsh plugin --profile web add github:AI-Galaxy-GPU/dsh-sound
   （`dsh-host-apiproxy` 的 `WEB_SETTINGS_NAMESPACES`）不会把第三方命名空间暴露给浏览器，
   该注册为平台开放暴露机制后的无缝迁移预留（客户端存储接口外形与 settingsScope 一致）。
 
+## 兼容性与能力披露
+
+**兼容范围**
+
+- Node.js:`>=20`(`engines.node`)。
+- DSH:已在 `0.1.5-alpha.1`、`0.1.5-alpha.2`、`0.1.5-rc.1`、`0.1.5-rc.2` 上验证,
+  并在 `dsh.compatibility.dshReleases` 中声明为 `compatible`;另在 `0.1.3-alpha.1`
+  源码构建上做过端到端冒烟(设置面板 + 真实事件响铃)。
+- 验证记录(2026-09-13):上述每个版本都跑了一遍一次性 Profile 流程——
+  `dsh plugin --profile web add <tarball>` → `dsh web --no-open` 启动且 boot 页包含
+  插件 bundle(`@ai-galaxy/dsh-sound/client.js`,无插件加载错误)→
+  `dsh plugin --profile web remove @ai-galaxy/dsh-sound` 后 profile 干净;
+  每次使用临时 `DSH_HOME`,验证后删除。
+
+**依赖**
+
+- 宿主端:仅 `@deepseek-ai/schemastery`(设置 schema)与 peer 依赖 `@deepseek-ai/cordis`,
+  无其他运行时依赖。
+- 客户端:React、`@deepseek-ai/dsh-client-runtime`、`@deepseek-ai/dsh-client-ui-settings`
+  均由宿主应用通过客户端模块表提供,包内不携带副本。
+
+**能力与权限**
+
+- 本地文件:设置面板打开浏览器自带的文件选择器,读取用户主动选择的音频文件,
+  存入 IndexedDB(`dsh-sound-audio`);没有浏览器沙箱之外的文件系统访问,也不会自动扫描文件。
+- 存储:配置存 `localStorage`(`dsh-sound:config`),音频存 IndexedDB。
+- 无网络请求、无外部服务、无 shell/命令执行、无凭据、无原生制品,
+  也没有安装期生命周期脚本(`preinstall` / `install` / `postinstall` / `prepare` 均不存在)。
+
+**失败边界**
+
+- 播放失败(浏览器自动播放策略、音频不支持)静默降级,界面不受影响。
+- IndexedDB/localStorage 不可用时退化为内存配置;读不到的音频引用直接忽略。
+- 事件流不可用或帧解析失败时降级为会话快照 diff;畸形帧被忽略且不崩溃。
+- 每次读取配置都会按已知字段与默认值做清洗。
+
 ## 开发
 
 ```sh
