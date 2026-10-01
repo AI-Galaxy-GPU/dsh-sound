@@ -533,7 +533,7 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
   env.exportsObj.apply(env.ctx)
   const productKeys = [
     'sound.ding', 'sound.chime', 'sound.bell', 'sound.complete', 'sound.success', 'sound.none', 'sound.local',
-    'event.approval', 'event.question', 'event.planReview', 'event.goalBlocked', 'event.failure',
+    'event.created', 'event.approval', 'event.question', 'event.planReview', 'event.goalBlocked', 'event.failure',
     'file.embeddedAudio', 'file.noneSelected', 'file.replace', 'file.choose', 'file.clickToPlay',
     'status.configUnavailable', 'section.title', 'tab.mainAgent', 'tab.subagents', 'subagent.ignoreEvents',
     'transfer.title', 'transfer.export', 'transfer.import', 'control.volume', 'control.play',
@@ -1079,10 +1079,10 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
     tabs[1].props.onClick()
     env.rerenderUI()
     const groups = env.created.filter((n) => n.props && n.props.role === 'radiogroup')
-    ok(groups.length === 6 && groups[0].props['data-kind'] === 'subagent-completion' && groups[5].props['data-kind'] === 'subagent-failure', 'subagent tab renders the six subagent event rows')
+    ok(groups.length === 7 && groups[0].props['data-kind'] === 'subagent-created' && groups[6].props['data-kind'] === 'subagent-failure', 'subagent tab renders the seven subagent event rows')
     const radios = env.created.filter((n) => n.type === 'input' && n.props.type === 'radio')
     const checked = radios.filter((radio) => radio.props.checked).map((radio) => radio.props.value)
-    ok(checked.join(',') === 'none,ding,ding,ding,bell,bell', 'subagent event defaults keep completion silent and alert events audible')
+    ok(checked.join(',') === 'ding,none,ding,ding,ding,bell,bell', 'subagent event defaults ring creation and alerts while completion stays silent')
     const switches = env.created.filter((n) => n.type === 'button' && n.props.role === 'switch')
     ok(switches.length === 2 && switches[1].props['aria-checked'] === 'false', 'subagent tab carries the ignore switch, off by default')
     switches[1].props.onClick()
@@ -1095,6 +1095,97 @@ function makeEnv(seededConfig, withMux, withBroadcast, noAudioContext) {
     env.rerenderUI()
     const mainGroups = env.created.filter((n) => n.props && n.props.role === 'radiogroup')
     ok(mainGroups.length === 6 && mainGroups[0].props['data-kind'] === 'completion', 'switching back shows the main event rows again')
+  }
+
+  // ----- scenario 43: subagent creation rings once per child (snapshot path) -----
+  {
+    const env = makeEnv(undefined)
+    env.exportsObj.apply(env.ctx)
+    const snapWith = (entries) => ({
+      ids: ['s1'], byId: { s1: env.row({}) }, current: 's1', jobsBySession: {},
+      projectionsBySession: { s1: { state: 'ready', values: { subagentCatalog: entries } } },
+    })
+    const historic = [{ id: 'old-child', createdAt: Date.now() - 3600_000, mode: 'one-shot' }]
+    env.drive(snapWith(historic))
+    ok(env.getOscCount() === 0, 'subagent creation: a catalog replayed on page load stays silent')
+
+    env.drive(snapWith(historic.concat([{ id: 'child-a', createdAt: Date.now(), mode: 'one-shot' }])))
+    const unit = env.getOscCount()
+    ok(unit > 0 && env.freqs[0] === FREQ.ding, 'subagent creation plays the default ding')
+
+    env.drive(snapWith(historic.concat([{ id: 'child-a', createdAt: Date.now(), mode: 'one-shot' }])))
+    ok(env.getOscCount() === unit, 'subagent creation does not repeat for the same child')
+
+    env.drive(snapWith(historic.concat([
+      { id: 'child-a', createdAt: Date.now(), mode: 'one-shot' },
+      { id: 'child-b', createdAt: Date.now(), mode: 'one-shot' },
+      { id: 'child-c', createdAt: Date.now(), mode: 'continuable', label: 'worker' },
+    ])))
+    ok(env.getOscCount() === unit * 3, 'parallel subagents each ring once (3 children, 3 sounds)')
+  }
+
+  // ----- scenario 44: the creation sound is configurable and obeys the subagent switches -----
+  {
+    const env = makeEnv({ subagentCreatedSound: 'bell', subagentCreatedVolume: 0.5 })
+    env.exportsObj.apply(env.ctx)
+    env.drive({
+      ids: ['s1'], byId: { s1: env.row({}) }, current: 's1', jobsBySession: {},
+      projectionsBySession: { s1: { values: { subagentCatalog: [{ id: 'c1', createdAt: Date.now(), mode: 'one-shot' }] } } },
+    })
+    ok(env.freqs.includes(FREQ.bell) && !env.freqs.includes(FREQ.ding), 'subagentCreatedSound overrides the default ding')
+    ok(env.gains.length > 0 && env.gains[0] === 0.26 * 0.5, 'subagentCreatedVolume scales the creation sound gain')
+
+    const muted = makeEnv({ subagentCreatedSound: 'none' })
+    muted.exportsObj.apply(muted.ctx)
+    muted.drive({
+      ids: ['s1'], byId: { s1: muted.row({}) }, current: 's1', jobsBySession: {},
+      projectionsBySession: { s1: { values: { subagentCatalog: [{ id: 'c2', createdAt: Date.now(), mode: 'one-shot' }] } } },
+    })
+    ok(muted.getOscCount() === 0, 'subagentCreatedSound=none silences creation')
+
+    const ignored = makeEnv({ ignoreSubagent: true })
+    ignored.exportsObj.apply(ignored.ctx)
+    ignored.drive({
+      ids: ['s1'], byId: { s1: ignored.row({}) }, current: 's1', jobsBySession: {},
+      projectionsBySession: { s1: { values: { subagentCatalog: [{ id: 'c3', createdAt: Date.now(), mode: 'one-shot' }] } } },
+    })
+    ok(ignored.getOscCount() === 0, 'ignoreSubagent silences the creation sound too')
+  }
+
+  // ----- scenario 45: mux subagentCatalog projection and subagent/catalog event -----
+  {
+    const env = makeEnv(undefined, true)
+    env.exportsObj.apply(env.ctx)
+    env.fireTimersMs(0)
+    env.muxPush({
+      type: 'session/projection', sessionId: 's1', key: 'subagentCatalog',
+      value: [{ id: 'm-a', createdAt: Date.now(), mode: 'one-shot' }],
+    })
+    await tick()
+    const unit = env.getOscCount()
+    ok(unit > 0 && env.freqs[0] === FREQ.ding, 'mux subagentCatalog projection rings the creation sound')
+
+    env.muxPush({
+      type: 'session/event', sessionId: 's1',
+      event: { type: 'subagent/catalog', seq: 0, time: 1, data: { version: 0, childId: 'm-a', childCreatedAt: Date.now(), mode: 'one-shot' } },
+    })
+    await tick()
+    ok(env.getOscCount() === unit, 'the same child does not ring twice when both sources report it')
+
+    env.muxPush({
+      type: 'session/event', sessionId: 's1',
+      event: { type: 'subagent/catalog', seq: 1, time: 1, data: { version: 0, childId: 'm-b', childCreatedAt: Date.now(), mode: 'one-shot' } },
+    })
+    await tick()
+    ok(env.getOscCount() === unit * 2, 'a different child rings again on the mux path')
+
+    env.muxPush({
+      type: 'session/projection', sessionId: 's1', key: 'subagentCatalog',
+      value: [{ id: 'm-a', createdAt: Date.now(), mode: 'one-shot' }, { id: 'm-old', createdAt: Date.now() - 3600_000, mode: 'one-shot' }],
+    })
+    await tick()
+    ok(env.getOscCount() === unit * 2, 'a reconnected projection replaying history stays silent')
+    env.getEffectDisposer()()
   }
 
   console.log(failures === 0 ? 'ALL CLIENT TESTS PASSED' : failures + ' FAILURES')

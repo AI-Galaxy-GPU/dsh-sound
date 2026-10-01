@@ -8,9 +8,9 @@ import type z from '@deepseek-ai/schemastery'
  * 宿主端同时注册同名 settings 命名空间（rc.6 的 settings API 白名单暂不
  * 向浏览器暴露第三方命名空间，待平台开放后客户端可无缝切换回 settingsScope）。
  *
- * 六类事件完全独立：每类都有自己的声音与音量。子代理（subagent）来源的
- * 同类事件另有独立的一套声音与音量（默认全部静音），并可用 `ignoreSubagent`
- * 一次性忽略全部子代理事件。声音值：
+ * 六类主事件完全独立：每类都有自己的声音与音量。子代理（subagent）来源的
+ * 同类事件另有独立的一套声音与音量，并可用 `ignoreSubagent` 一次性忽略全部
+ * 子代理事件；此外 `subagentCreatedSound` 在每次子代理创建时播放。声音值：
  * 内置键（ding | chime | bell | complete | success | none）、'local'（本地文件待选）、
  * 'data:…'（内嵌数据 URL）、'audio:<id>'（IndexedDB 音频库引用）。
  */
@@ -45,6 +45,8 @@ export interface NotifySoundConfig {
   goalBlockedVolume: number
   /** 后台任务失败音量 0..1 */
   failureVolume: number
+  /** 子代理创建声音（默认 ding；每个子代理创建时各响一次） */
+  subagentCreatedSound: string
   /** 子代理完成事件声音（默认 none） */
   subagentCompletionSound: string
   /** 子代理审批请求声音（默认 none） */
@@ -57,6 +59,8 @@ export interface NotifySoundConfig {
   subagentGoalBlockedSound: string
   /** 子代理后台任务失败声音（默认 none） */
   subagentFailureSound: string
+  /** 子代理创建音量 0..1 */
+  subagentCreatedVolume: number
   /** 子代理完成事件音量 0..1 */
   subagentCompletionVolume: number
   /** 子代理审批请求音量 0..1 */

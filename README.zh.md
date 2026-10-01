@@ -42,9 +42,15 @@ DeepSeek Harness（DSH）Web 端插件：**任务完成后播放通知铃声**�
   每个子代理完成都会响主完成音的扰民问题由此解决）；
 - **子代理会话** — 会话行带 `origin: 'subagent'` / `parentId` 的事件（可继续子代理），
   包括子会话回合结束、审批、提问、目标受阻与失败。
+- **子代理创建** — 父会话的 `subagentCatalog` 投影出现新 `childId`：快照
+  `projectionsBySession`、mux 的 `session/projection` 帧、`subagent/catalog` 会话事件
+  三条来源都会识别。DSH 对一次性与可继续子代理都会写入这条目录事实，因此每次委派都能
+  报创建；每个子代理各响一次，并行委派的多个子代理不会合并成一声。只有本次页面加载
+  之后创建的才会响，刷新 / 重连回放的历史目录只登记不响。
 
-设置面板新增**子代理事件**分区：六个事件行（声音来源与音量控件与主事件一致），
-外加一个「忽略子代理事件」总开关。子代理六类声音默认全部静音，主 agent 事件行为不变。
+设置面板新增**子代理事件**分区：七个事件行（声音来源与音量控件与主事件一致），
+外加一个「忽略子代理事件」总开关。行序为「创建」在前，后接与主面板同名的六类事件；
+「创建」默认叮咚，主 agent 事件行为不变。
 
 ### 声音来源
 
@@ -58,7 +64,7 @@ DeepSeek Harness（DSH）Web 端插件：**任务完成后播放通知铃声**�
 ### 设置面板（设置 → 声音通知）
 
 总开关与配置导入/导出保持常驻；**主 Agent / 子代理** 两个 Tab 切换面板：
-主 Tab 是六类主事件行，子代理 Tab 是六类子代理事件行加「忽略子代理事件」开关。
+主 Tab 是六类主事件行，子代理 Tab 是七类子代理事件行加「忽略子代理事件」开关。
 每个事件行标题行右侧为音量滑块，下方为 Radio.Button 分段选择（点击即选中并播放）；
 选「本地文件」时行下方出现选择/更换按钮与文件名。
 
@@ -98,9 +104,10 @@ dsh plugin --profile web add github:AI-Galaxy-GPU/dsh-sound
   `goalBlockedSound` / `failureSound`（内置键 / `none` / `local` / `data:` URL /
   `audio:<id>`）与 `completionVolume` … `failureVolume`（0–1）；子代理通道另有对应的
   `subagentCompletionSound` … `subagentFailureSound` 与
-  `subagentCompletionVolume` … `subagentFailureVolume`（声音默认全部 `none`）。
-  `localFiles` 记住每类事件（`completion` … 与 `subagent-completion` …）上次选的
-  本地文件，切到内置音再切回时不丢。
+  `subagentCompletionVolume` … `subagentFailureVolume`，以及子代理创建音的
+  `subagentCreatedSound`（默认 `ding`）/ `subagentCreatedVolume`。
+  `localFiles` 记住每类事件（`completion` … 与 `subagent-completion` …，含
+  `subagent-created`）上次选的本地文件，切到内置音再切回时不丢。
 - **0.2.0 配置自动迁移**：旧配置的 `defaultSound` 迁为 `completionSound`，
   voice/TTS 值降级为该类默认音，`workspaces` / `debounceMs` / 全局 `volume` /
   语音设置等旧字段一律忽略。

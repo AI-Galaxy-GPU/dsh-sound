@@ -45,10 +45,17 @@ Subagent-originated events are detected and routed independently from the main a
 - **Subagent sessions** — events whose session row is marked `origin: 'subagent'` /
   `parentId` (continuable subagents), including child-session turn ends, approvals,
   questions, goal projections, and failures.
+- **Subagent creation** — a new `childId` appears in the parent session's `subagentCatalog`
+  projection, read from the `projectionsBySession` snapshot, the `session/projection` frame,
+  or the `subagent/catalog` session event. DSH records that catalog fact for both one-shot
+  and continuable children, so every delegation reports its creation. Each subagent rings
+  once, so parallel delegations ring once each. Only children created after the page loaded
+  ring; a catalog replayed on refresh or reconnect is recorded silently.
 
-The settings panel adds a **子代理事件 / Subagent Events** section with six rows (same sound
+The settings panel adds a **子代理事件 / Subagent Events** section with seven rows (same sound
 sources and per-row volume as the main events) plus an **ignore all subagent events** master
-switch. All six subagent sounds default to **mute**; main-agent events are unchanged.
+switch. The row order is creation first, then the six events shared with the main panel;
+creation defaults to **Ding**. Main-agent events are unchanged.
 
 ### Sound sources
 
@@ -64,7 +71,7 @@ Each event picks one sound from a **Radio.Button group** in the settings panel:
 ### Settings panel (Settings → 声音通知 / Sound Notification)
 
 The master switch and config export/import stay visible; a **主 Agent / 子代理** tab bar
-switches the panel between the six main event rows and the subagent panel (its own six rows
+switches the panel between the six main event rows and the subagent panel (its own seven rows
 plus the 「忽略子代理事件」/ ignore-all-subagent-events switch). Each event row has a volume
 slider on the title row and a Radio.Group of Radio.Button options below — click to select
 and play; a local-file row with a choose/replace button appears when 本地文件 is selected.
@@ -109,9 +116,11 @@ dsh plugin --profile web add github:AI-Galaxy-GPU/dsh-sound
   `goalBlockedSound` / `failureSound` (builtin key, `none`, `local`, `data:` URL,
   or `audio:<id>`) and `completionVolume` … `failureVolume` (0–1) — plus the matching
   `subagentCompletionSound` … `subagentFailureSound` / `subagentCompletionVolume` …
-  `subagentFailureVolume` pairs for the subagent channel (all sounds default to `none`).
+  `subagentFailureVolume` pairs for the subagent channel, plus `subagentCreatedSound`
+  (default `ding`) / `subagentCreatedVolume` for subagent creation.
   `localFiles` keeps the last chosen local file per event (`completion`, … and
-  `subagent-completion`, …) so switching to a built-in sound and back does not drop it.
+  `subagent-completion`, …, including `subagent-created`) so switching to a built-in sound
+  and back does not drop it.
 - **0.2.0 migration**: older configs are upgraded automatically — `defaultSound`
   becomes `completionSound`, voice/TTS values degrade to the per-event default,
   and `workspaces` / `debounceMs` / global `volume` / voice settings are dropped.
